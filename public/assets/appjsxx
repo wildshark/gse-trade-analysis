@@ -1,0 +1,150 @@
+// public/assets/app.js
+
+async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+}
+
+// Build query string from filters
+function buildQueryParams() {
+    const s = document.getElementById('startDate').value;
+    const e = document.getElementById('endDate').value;
+    const sym = document.getElementById('symbol').value.trim();
+    const sec = document.getElementById('sector').value.trim();
+    const params = new URLSearchParams();
+    if (s) params.append('start', s);
+    if (e) params.append('end', e);
+    if (sym) params.append('symbol', sym);
+    if (sec) params.append('sector', sec);
+    return params.toString();
+}
+
+let volChart, valChart;
+
+async function loadAll() {
+    try {
+        const data = await fetchJSON('api.php?' + buildQueryParams());
+
+        // KPIs
+        document.getElementById('kpiVolume').textContent =
+            new Intl.NumberFormat().format(data.kpis.total_volume || 0);
+        document.getElementById('kpiValue').textContent =
+            new Intl.NumberFormat().format(Math.round(data.kpis.total_value || 0));
+        document.getElementById('kpiDays').textContent =
+            data.kpis.trading_days || 0;
+        document.getElementById('kpiSymbols').textContent =
+            data.kpis.distinct_symbols || 0;
+
+        // Daily charts
+        const labels = data.daily.map(d => d.trade_date);
+        const vol = data.daily.map(d => Number(d.volume));
+        const val = data.daily.map(d => Number(d.value));
+
+        const volCtx = document.getElementById('volChart').getContext('2d');
+        const valCtx = document.getElementById('valChart').getContext('2d');
+
+        if (volChart) volChart.destroy();
+        if (valChart) valChart.destroy();
+
+        volChart = new Chart(volCtx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{ label: 'Volume', data: vol, borderColor: '#0d6efd', fill: false }]
+            },
+            options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+        });
+
+        valChart = new Chart(valCtx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{ label: 'Value', data: val, borderColor: '#198754', fill: false }]
+            },
+            options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+        });
+
+        // Top tables
+        const topVolTBody = document.querySelector('#topVolTbl tbody');
+        const topValTBody = document.querySelector('#topValTbl tbody');
+        topVolTBody.innerHTML = data.topVol.map(r =>
+            `<tr><td>${r.symbol}</td><td class="text-end">${Intl.NumberFormat().format(r.volume)}</td></tr>`
+        ).join('');
+        topValTBody.innerHTML = data.topVal.map(r =>
+            `<tr><td>${r.symbol}</td><td class="text-end">${Intl.NumberFormat().format(Math.round(r.value))}</td></tr>`
+        ).join('');
+
+        // Sector breakdown
+        const secTBody = document.querySelector('#sectorTbl tbody');
+        secTBody.innerHTML = data.sector.map(r =>
+            `<tr><td>${r.sector}</td>
+       <td class="text-end">${Intl.NumberFormat().format(r.volume)}</td>
+       <td class="text-end">${Intl.NumberFormat().format(Math.round(r.value))}</td></tr>`
+        ).join('');
+
+        // Buy/Sell suggestions
+        const buyTBody = document.querySelector('#buyTbl tbody');
+        const sellTBody = document.querySelector('#sellTbl tbody');
+        const fmt = new Intl.NumberFormat();
+        const pct = x => (x === null || x === undefined) ? '—' : `${(Number(x)).toFixed(2)}%`;
+
+        buyTBody.innerHTML = (data.signals.buy || []).map(r => `
+      <tr>
+        <td>${r.symbol}</td>
+        <td class="text-end">${fmt.format(Math.round(r.avg_daily_value))}</td>
+        <td class="text-end">${(Number(r.mom_ratio)).toFixed(2)}×</td>
+        <td class="text-end">${r.traded_days}/${r.period_days}</td>
+        <td class="text-end">${pct(r.price_change_pct)}</td>
+        <td>${r.reason}</td>
+      </tr>
+    `).join('');
+
+        sellTBody.innerHTML = (data.signals.sell || []).map(r => `
+      <tr>
+        <td>${r.symbol}</td>
+        <td class="text-end">${fmt.format(Math.round(r.avg_daily_value))}</td>
+        <td class="text-end">${(Number(r.mom_ratio)).toFixed(2)}×</td>
+        <td class="text-end">${r.traded_days}/${r.period_days}</td>
+        <td class="text-end">${pct(r.price_change_pct)}</td>
+        <td>${r.reason}</td>
+      </tr>
+    `).join('');
+
+    } catch (err) {
+        console.error('Error loading data:', err);
+        alert('Failed to load data. Check console for details.');
+    }
+}
+
+// Event bindings
+document.getElementById('applyFilters').addEventListener('click', loadAll);
+document.getElementById('resetFilters').addEventListener('click', () => {
+    ['startDate', 'endDate', 'symbol', 'sector'].forEach(id => document.getElementById(id).value = '');
+    loadAll();
+});
+document.getElementById('exportCsv').addEventListener('click', async () => {
+    try {
+        const data = await fetchJSON('api.php?' + buildQueryParams());
+        const rows = [['trade_date', 'volume', 'value']].concat(
+            data.daily.map(d => [d.trade_date, d.volume, d.value])
+        );
+        const csv = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'daily_summary.csv';
+        a.click();
+    } catch (err) {
+        alert('Export failed: ' + err.message);
+    }
+});
+document.getElementById('rebuildBtn').addEventListener('click', async () => {
+    const ok = confirm('This will drop the current table. Continue?');
+    if (!ok) return;
+    const res = await fetch('upload.php', { method: 'POST', body: new URLSearchParams({ rebuild: 1 }) });
+    alert(await res.text());
+});
+
+// Initial load
+window.addEventListener('DOMContentLoaded', loadAll);
