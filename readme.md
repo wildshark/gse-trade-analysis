@@ -3,8 +3,6 @@
 A lightweight PHP + SQLite web application for analyzing daily trades of shares and ETFs.  
 It ingests CSV files, computes KPIs, generates charts, highlights buy/sell signals, forecasts future candidates, and includes a calculator for trade scenarios.
 
----
-
 ## ✨ Features
 
 - **CSV Upload & Ingestion**: Import daily trade data into SQLite.
@@ -16,8 +14,6 @@ It ingests CSV files, computes KPIs, generates charts, highlights buy/sell signa
 - **Buy/Sell Suggestions**: Based on liquidity, momentum, consistency, and pump-risk.
 - **Forecast Predictions**: Predicts buy/sell candidates for the next 30 days.
 - **Calculator**: Simulates buy/sell scenarios with amount, duration, and symbol selection.
-
----
 
 ## 📂 File Structure
 
@@ -35,8 +31,6 @@ trade-analysis/
 ├── bootstrap.sql        # Schema definition for trades table
 └── README.md            # Project documentation
 ```
-
----
 
 ## 🚀 Deployment
 
@@ -65,8 +59,6 @@ trade-analysis/
 
 6. Open [http://localhost:8000](http://localhost:8000) in your browser.
 
----
-
 ## 🛠️ Usage
 
 1. **Upload CSV**:
@@ -85,8 +77,6 @@ trade-analysis/
    - Select trade type (buy/sell), amount, duration, and symbol.
    - Get projected shares, price, and portfolio value.
 
----
-
 ## 📌 Example CSV Format
 
 ```csv
@@ -96,15 +86,11 @@ Date,Symbol,Sector,Volume,Value,Price
 ...
 ```
 
----
-
 ## ⚠️ Important Disclaimer
 
 This application is for **educational and analytical purposes only**.  
 It does **not** provide financial advice, recommendations, or guarantees.  
 Before making any investment decisions, **seek guidance from a licensed broker or qualified financial professional**.  
-
----
 
 ## 📄 License
 
